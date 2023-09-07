@@ -1,0 +1,13 @@
+{
+    "files.associations": {
+        "*.cms21": "json",
+        ".env": "log",
+        "windows.h": "c",
+        "types.h": "c",
+        "stb_image.h": "c",
+        "nn.h": "c",
+        "stdint.h": "c",
+        "shared_constants.h": "c",
+        "raylib.h": "c"
+    }
+}

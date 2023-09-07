@@ -1,0 +1,6 @@
+xor
+adder
+img2nn
+*.swp
+*.exe
+raylib.h
