@@ -1,16 +1,3 @@
-/*******************************************************************************************
- *
- *   raylib [shapes] example - bouncing ball
- *
- *   Example originally created with raylib 2.5, last time updated with raylib 2.5
- *
- *   Example licensed under an unmodified zlib/libpng license, which is an OSI-certified,
- *   BSD-like license that allows static linking with closed source software
- *
- *   Copyright (c) 2013-2023 Ramon Santamaria (@raysan5)
- *
- ********************************************************************************************/
-
 #include <stdio.h>
 #include "raylib.h"
 
@@ -60,12 +47,18 @@ int main(void)
 
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "cTewart");
 
-    Vector2 ballPosition = {GetScreenWidth() / 2.0f, GetScreenHeight() / 2.0f};
-    Vector2 ballSpeed = {0.0f, 4.0f};
-    int ballRadius = 20;
+    // Define the camera to look into our 3d world
+    Camera camera = {0};
+    camera.position = (Vector3){10.0f, 10.0f, 10.0f}; // Camera position
+    camera.target = (Vector3){0.0f, 0.0f, 0.0f};      // Camera looking at point
+    camera.up = (Vector3){0.0f, 1.0f, 0.0f};          // Camera up vector (rotation towards target)
+    camera.fovy = 45.0f;                              // Camera field-of-view Y
+    camera.projection = CAMERA_PERSPECTIVE;           // Camera projection type
 
-    bool pause = 0;
-    int framesCounter = 0;
+    Vector3 cubePosition = {0.0f, 0.0f, 0.0f};
+    Vector2 cubeScreenPosition = {0.0f, 0.0f};
+
+    DisableCursor(); // Limit cursor to relative movement inside the window
 
     // Set custom logger
     SetTraceLogCallback(CustomLog);
@@ -77,55 +70,36 @@ int main(void)
     while (!WindowShouldClose()) // Detect window close button or ESC key
     {
         // Update
-        //-----------------------------------------------------
-        if (IsKeyPressed(KEY_SPACE))
-            pause = !pause;
+        //----------------------------------------------------------------------------------
+        UpdateCamera(&camera, CAMERA_THIRD_PERSON);
 
-        if (!pause)
-        {
-            ballPosition.x += ballSpeed.x;
-            ballPosition.y += ballSpeed.y;
-
-            // Check walls collision for bouncing
-            if ((ballPosition.x >= (GetScreenWidth() - ballRadius)) || (ballPosition.x <= ballRadius))
-                ballSpeed.x *= -1.0f;
-            if ((ballPosition.y >= (GetScreenHeight() - ballRadius)) || (ballPosition.y <= ballRadius))
-                ballSpeed.y *= -1.0f;
-        }
-        else
-            framesCounter++;
-        //-----------------------------------------------------
+        // Calculate cube screen space position (with a little offset to be in top)
+        cubeScreenPosition = GetWorldToScreen((Vector3){cubePosition.x, cubePosition.y + 2.5f, cubePosition.z}, camera);
+        //----------------------------------------------------------------------------------
 
         // Draw
-        //-----------------------------------------------------
+        //----------------------------------------------------------------------------------
         BeginDrawing();
 
         ClearBackground(RAYWHITE);
-        DrawCircleV(ballPosition, (float)ballRadius, MAROON);
-        DrawText("PRESS SPACE to PAUSE BALL MOVEMENT", 10, GetScreenHeight() - 25, 20, LIGHTGRAY);
-        char xstr[20];
-        char ystr[20];
-        sprintf(xstr, "x: %.2f", ballPosition.x);
-        sprintf(ystr, "y: %.2f", ballPosition.y);
-        DrawText(xstr, 10, 50, 20, BLACK);
-        DrawText(ystr, 10, 80, 20, BLACK);
-        char xdotstr[20];
-        char ydotstr[20];
-        sprintf(xdotstr, "x.: %.2f", ballSpeed.x);
-        sprintf(ydotstr, "y.: %.2f", ballSpeed.y);
-        DrawText(xdotstr, 10, 110, 20, BLACK);
-        DrawText(ydotstr, 10, 140, 20, BLACK);
 
-        // On pause, we draw a blinking message
-        if (pause && ((framesCounter / 30) % 2))
-        {
-            DrawText("PAUSED", 350, 200, 30, GRAY);
-            TraceLog(LOG_INFO, "paused");
-        }
-        DrawFPS(10, 10);
+        BeginMode3D(camera);
+
+        DrawCube(cubePosition, 2.0f, 2.0f, 2.0f, RED);
+        DrawCubeWires(cubePosition, 2.0f, 2.0f, 2.0f, MAROON);
+
+        DrawGrid(10, 1.0f);
+        // TraceLog(LOG_INFO, "paused");
+
+        EndMode3D();
+
+        DrawText("Enemy: 100 / 100", (int)cubeScreenPosition.x - MeasureText("Enemy: 100/100", 20) / 2, (int)cubeScreenPosition.y, 20, BLACK);
+
+        DrawText(TextFormat("Cube position in screen space coordinates: [%i, %i]", (int)cubeScreenPosition.x, (int)cubeScreenPosition.y), 10, 10, 20, LIME);
+        DrawText("Text 2d should be always on top of the cube", 10, 40, 20, GRAY);
 
         EndDrawing();
-        //-----------------------------------------------------
+        //----------------------------------------------------------------------------------
     }
 
     // De-Initialization
