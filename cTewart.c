@@ -2,6 +2,7 @@
 #include "raylib.h"
 
 #include <time.h> // Required for: time_t, tm, time(), localtime(), strftime()
+#include <math.h>
 
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 450
@@ -45,9 +46,9 @@ int main(void)
     // Initialization
     //---------------------------------------------------------
 
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "cTewart");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Stewart Platform");
 
-    // Define the camera to look into our 3d world
+    // Define the camera to look into our 3D world
     Camera camera = {0};
     camera.position = (Vector3){10.0f, 10.0f, 10.0f}; // Camera position
     camera.target = (Vector3){0.0f, 0.0f, 0.0f};      // Camera looking at point
@@ -55,14 +56,23 @@ int main(void)
     camera.fovy = 45.0f;                              // Camera field-of-view Y
     camera.projection = CAMERA_PERSPECTIVE;           // Camera projection type
 
-    Vector3 cubePosition = {0.0f, 0.0f, 0.0f};
-    Vector2 cubeScreenPosition = {0.0f, 0.0f};
+    Vector3 basePlatform[6]; // Array to store the positions of the six vertices of the base hexagonal platform
+    Vector3 upperPlatform[6]; // Array to store the positions of the six vertices of the upper hexagonal platform
+    Vector3 actuators[6]; // Array to store the positions of the six actuators
+
+    for (int i = 0; i < 6; ++i)
+    {
+        float angle = 2.0f * PI * i / 6.0f;
+        basePlatform[i] = (Vector3){4.0f * cos(angle), 0, 4.0f * sin(angle)}; // Lower the base platform to make it thicker
+        upperPlatform[i] = basePlatform[i];
+        upperPlatform[i].y += 3.0f; // Initial height of the upper platform
+        actuators[i] = basePlatform[i];
+        actuators[i].y += 1.5f; // Adjust height of actuators
+    }
 
     DisableCursor(); // Limit cursor to relative movement inside the window
 
-    // Set custom logger
-    SetTraceLogCallback(CustomLog);
-    SetTraceLogLevel(LOG_ALL);
+    SetTraceLogLevel(LOG_NONE);
     SetTargetFPS(60); // Set our game to run at 60 frames-per-second
     //----------------------------------------------------------
 
@@ -73,8 +83,18 @@ int main(void)
         //----------------------------------------------------------------------------------
         UpdateCamera(&camera, CAMERA_THIRD_PERSON);
 
-        // Calculate cube screen space position (with a little offset to be in top)
-        cubeScreenPosition = GetWorldToScreen((Vector3){cubePosition.x, cubePosition.y + 2.5f, cubePosition.z}, camera);
+        // Move the upper platform (for example, oscillation)
+        float oscillationHeight = 1.0f * sin(GetTime()); // Adjust the amplitude and frequency as needed
+        for (int i = 0; i < 6; ++i)
+        {
+            upperPlatform[i].y = basePlatform[i].y + 3.0f + oscillationHeight;
+        }
+
+        // Update actuators' positions based on the movement of the upper platform
+        for (int i = 0; i < 6; ++i)
+        {
+            actuators[i].y = upperPlatform[i].y - 1.5f; // Connect the actuators to the upper platform
+        }
         //----------------------------------------------------------------------------------
 
         // Draw
@@ -85,18 +105,32 @@ int main(void)
 
         BeginMode3D(camera);
 
-        DrawCube(cubePosition, 2.0f, 2.0f, 2.0f, RED);
-        DrawCubeWires(cubePosition, 2.0f, 2.0f, 2.0f, MAROON);
+        // Draw the base hexagonal platform using lines
+        for (int i = 0; i < 6; ++i)
+        {
+            int nextIndex = (i + 1) % 6;
+            DrawLine3D(basePlatform[i], basePlatform[nextIndex], BLUE);
+        }
+
+        // Draw the upper hexagonal platform using lines
+        for (int i = 0; i < 6; ++i)
+        {
+            int nextIndex = (i + 1) % 6;
+            DrawLine3D(upperPlatform[i], upperPlatform[nextIndex], GREEN);
+        }
+
+        // Draw the actuators connected to the base and upper platforms using lines
+        for (int i = 0; i < 6; ++i)
+        {
+            DrawLine3D(basePlatform[i], actuators[i], RED); // Connect the actuators to the base
+            DrawLine3D(upperPlatform[i], actuators[i], RED); // Connect the actuators to the upper platform
+        }
 
         DrawGrid(10, 1.0f);
-        // TraceLog(LOG_INFO, "paused");
 
         EndMode3D();
 
-        DrawText("Enemy: 100 / 100", (int)cubeScreenPosition.x - MeasureText("Enemy: 100/100", 20) / 2, (int)cubeScreenPosition.y, 20, BLACK);
-
-        DrawText(TextFormat("Cube position in screen space coordinates: [%i, %i]", (int)cubeScreenPosition.x, (int)cubeScreenPosition.y), 10, 10, 20, LIME);
-        DrawText("Text 2d should be always on top of the cube", 10, 40, 20, GRAY);
+        DrawText("Stewart Platform Simulation", 10, 10, 20, BLACK);
 
         EndDrawing();
         //----------------------------------------------------------------------------------
