@@ -31,7 +31,7 @@ set PATH=%COMPILER_DIR%;%PATH%
 @echo on
 :: Cleaning latest build
 :: ---------------------------
-cmd /c if exist %FILENAME_FULL_PATH%.exe del /F %FILENAME_FULL_PATH%.exe
+%SystemRoot%\System32\cmd.exe /c if exist %FILENAME_FULL_PATH%.exe del /F %FILENAME_FULL_PATH%.exe
 
 
 :: Compilation
@@ -41,4 +41,5 @@ cmd /c if exist %FILENAME_FULL_PATH%.exe del /F %FILENAME_FULL_PATH%.exe
 
 :: Executing program
 :: -------------------------
-cmd /c if exist %FILENAME_FULL_PATH%.exe %FILENAME_FULL_PATH%.exe
+%SystemRoot%\System32\cmd.exe /c if exist %FILENAME_FULL_PATH%.exe %FILENAME_FULL_PATH%.exe
+::start %FILENAME_FULL_PATH%.exe
