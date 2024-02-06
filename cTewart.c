@@ -43,6 +43,7 @@ void CustomLog(int msgType, const char *text, va_list args)
 //------------------------------------------------------------------------------------
 int main(void)
 {
+    static float pct = 0.01f;
     // Initialization
     //---------------------------------------------------------
 
@@ -118,6 +119,11 @@ int main(void)
             int nextIndex = (i + 1) % 6;
             DrawLine3D(upperPlatform[i], upperPlatform[nextIndex], GREEN);
         }
+        // float y = (exp(sin(2 * PI * pct) - 1)) / (pow(exp(1),2) - 1);
+        // Vector3 breath_pos = (Vector3){0.0f, y * 10, 0.0f};
+        // PLAT.pos = Vector3Add(THIS.T0, breath_pos);
+        pct += 0.005f;
+        if (pct > 1.0f) {pct=0.0f;};
 
         // Draw the actuators connected to the base and upper platforms using lines
         for (int i = 0; i < 6; ++i)
