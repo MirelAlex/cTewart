@@ -1,13 +1,16 @@
 #include "raylib.h"
 #include "rlgl.h"
-
+#include <stdlib.h>
 #include <math.h>           // Required for: cosf(), sinf()
-
+#include "raymath.h"  // Include the raymath header
+#define NUM_VERTICES 6
 //------------------------------------------------------------------------------------
 // Module Functions Declaration
 //------------------------------------------------------------------------------------
 void DrawSphereBasic(Color color);      // Draw sphere without any matrix transformation
-
+float pct = 0.0f;
+Vector3 translation;
+Quaternion orientation;
 //------------------------------------------------------------------------------------
 // Program main entry point
 //------------------------------------------------------------------------------------
@@ -44,6 +47,10 @@ int main(void)
     SetTargetFPS(60);                   // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
+    // Generate a hexagon mesh
+    Mesh hexagonMesh = GenMeshPoly(6, 1.0f);
+
+    Model model = LoadModelFromMesh(hexagonMesh);
     // Main game loop
     while (!WindowShouldClose())        // Detect window close button or ESC key
     {
@@ -57,6 +64,17 @@ int main(void)
         moonOrbitRotation += (8.0f*rotationSpeed);
         //----------------------------------------------------------------------------------
 
+        // rotate
+        float b = powf(sin(pct * PI * 2 - PI * 8), 5) / 0.98;
+        translation.x = 0.0f;
+        translation.y = 0.0f;
+        translation.z = 0.0f;
+        orientation = QuaternionFromAxisAngle((Vector3){0,1,0}, b);
+
+        Matrix m = QuaternionToMatrix(orientation);
+        float* mf = MatrixToFloat(m);
+
+
         // Draw
         //----------------------------------------------------------------------------------
         BeginDrawing();
@@ -67,7 +85,11 @@ int main(void)
 
                 rlPushMatrix();
                     rlScalef(sunRadius, sunRadius, sunRadius);          // Scale Sun
-                    DrawSphereBasic(GOLD);                              // Draw the Sun
+                    rlMultMatrixf(mf);
+                    // DrawSphereBasic(GOLD);                              // Draw the Sun
+                    // DrawPlane((Vector3){0,0,0}, (Vector2){1,1}, GOLD);
+                    DrawModel(model, (Vector3){ 0.0f, 0.0f, 0.0f }, 1.0f, MAGENTA); // Draw the hexagon model
+
                 rlPopMatrix();
 
                 rlPushMatrix();
@@ -78,7 +100,7 @@ int main(void)
                         rlRotatef(earthRotation, 0.25, 1.0, 0.0);       // Rotation for Earth itself
                         rlScalef(earthRadius, earthRadius, earthRadius);// Scale Earth
 
-                        DrawSphereBasic(BLUE);                          // Draw the Earth
+                        DrawCubeV((Vector3){0,0,0}, (Vector3){1,1,1}, BLUE);                          // Draw the Earth
                     rlPopMatrix();
 
                     rlRotatef(moonOrbitRotation, 0.0f, 1.0f, 0.0f);     // Rotation for Moon orbit around Earth
@@ -86,7 +108,7 @@ int main(void)
                     rlRotatef(moonRotation, 0.0f, 1.0f, 0.0f);          // Rotation for Moon itself
                     rlScalef(moonRadius, moonRadius, moonRadius);       // Scale Moon
 
-                    DrawSphereBasic(LIGHTGRAY);                         // Draw the Moon
+                    DrawCubeV((Vector3){0,0,0}, (Vector3){1,1,1}, LIGHTGRAY);                         // Draw the Moon
                 rlPopMatrix();
 
                 // Some reference elements (not affected by previous matrix transformations)
@@ -97,10 +119,14 @@ int main(void)
 
             DrawText("EARTH ORBITING AROUND THE SUN!", 400, 10, 20, MAROON);
             DrawFPS(10, 10);
+        // increment pct
 
+        pct += GetFrameTime();
+        if (pct > 1.0f) pct=0.0f;
         EndDrawing();
         //----------------------------------------------------------------------------------
     }
+    UnloadModel(model); // Unload the model
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
