@@ -17,7 +17,7 @@ float pct = 0.00f;
 float rate = 0.98f;
 float dtFactor = 0.5f;
 float leftBoundary = 900.0f;
-bool init = 0;
+bool wobble = 0;
 
 // Custom logging function
 void CustomLog(int msgType, const char *text, va_list args)
@@ -178,9 +178,6 @@ void UpdateStewart(Vector3 translation, Quaternion orientation){
 
 }
 
-// frames are drawn based on the platforms positions but
-// I also need them to rotate by the platform rotation
-// (only PLAT ofc)
 void _drawFrame(Vector3 refPos){
     float radiusBottom = 0.2f;
     float radiusTop = 0.0f;
@@ -248,6 +245,7 @@ void DrawStewart(){
             // Draw joints
             DrawSphere(THIS.B[i], 0.2f, RED);
 
+            // This rlPushMatrix doesn't work TODO: check why
             rlPushMatrix();
                 rlMultMatrixf(MatrixToFloat(combinedM));
                 DrawSphere(THIS.P[i], 0.2f, RED);
@@ -274,6 +272,8 @@ void DrawSliders()
 {
     float _rodL = THIS.rodLength;
     float _hornL = THIS.hornLength;
+    float _sD = BASE.shaftDistance;
+    float _aD = PLAT.anchorDistance;
     THIS.hornLength = GuiSliderBar((Rectangle){ leftBoundary, 40, 250, 20 },
                                     "horn length", TextFormat("%.2f", THIS.hornLength),
                                     THIS.hornLength,
@@ -282,6 +282,7 @@ void DrawSliders()
                                     "rod length", TextFormat("%.2f", THIS.rodLength),
                                     THIS.rodLength,
                                     0, 20);
+    // TODO: rewrite this
     if ((THIS.rodLength != _rodL) || (THIS.hornLength != _hornL))
     {
         calcT0();
@@ -290,11 +291,26 @@ void DrawSliders()
     BASE.shaftDistance = GuiSliderBar((Rectangle){ leftBoundary, 100, 250, 20 },
                                     "shaftDistance", TextFormat("%.2f", BASE.shaftDistance),
                                     BASE.shaftDistance,
-                                    0, 20);
+                                    0, 1); // 1 is perfectly symetrical
     PLAT.anchorDistance = GuiSliderBar((Rectangle){ leftBoundary, 130, 250, 20 },
                                     "anchorDsitance", TextFormat("%.2f", PLAT.anchorDistance),
                                     PLAT.anchorDistance,
-                                    0, 20);
+                                    0, 1); // 1 is perfectly symetrical
+    // TODO: rewrite this
+    if ((BASE.shaftDistance!= _sD) || (PLAT.anchorDistance != _aD))
+    {
+        getLegs();
+        for (size_t i = 0; i < 6; i++)
+        {
+            THIS.B[i] = THIS.legs[i].baseJoint;
+            THIS.P[i] = THIS.legs[i].platformJoint;
+            THIS.sinBeta[i] = sin(THIS.legs[i].motorRot);
+            THIS.cosBeta[i] = cos(THIS.legs[i].motorRot);
+            THIS.q[i] = zero_vec;
+            THIS.l[i] = zero_vec;
+            THIS.H[i] = zero_vec;
+        }
+    }
     rate = GuiSliderBar((Rectangle){ leftBoundary, 160, 250, 20 },
                                     "rate length", TextFormat("%.2f", rate),
                                     rate,
@@ -303,7 +319,7 @@ void DrawSliders()
                                     "dtFactor", TextFormat("%.2f", dtFactor),
                                     dtFactor,
                                     0, 1);
-    init = GuiCheckBox((Rectangle){ leftBoundary, 210, 20, 20 }, "init?", init);
+    wobble = GuiCheckBox((Rectangle){ leftBoundary, 220, 20, 20 }, "wobble/rotate", wobble);
 }
 
 //------------------------------------------------------------------------------------
@@ -343,21 +359,24 @@ int main(void)
         }
         //----------------------------------------------------------------------------------
 
-        // wobble effect
-        float b = pct * 2.0f * PI;
-        THIS.translation.x = cos(-b) * 2.0f * rate;
-        THIS.translation.y = 0.0f;
-        THIS.translation.z = sin(-b) * 2.0f * rate;
-        Quaternion o = (Quaternion){-cos(b), 0 , sin(b), rate * 10};
-        THIS.orientation = QuaternionNormalize(o);
+        if (wobble){
+            // wobble effect
+            float b = pct * 2.0f * PI;
+            THIS.translation.x = cos(-b) * 2.0f * rate;
+            THIS.translation.y = 0.0f;
+            THIS.translation.z = sin(-b) * 2.0f * rate;
+            Quaternion o = (Quaternion){-cos(b), 0 , sin(b), rate * 10};
+            THIS.orientation = QuaternionNormalize(o);
+        }else{
+            // rotate
+            float b = powf(sin(pct * PI * 2 - PI * 8), 5) / rate;
+            THIS.translation.x = 0.0f;
+            THIS.translation.y = 0.0f;
+            THIS.translation.z = 0.0f;
+            THIS.orientation = QuaternionFromAxisAngle((Vector3){0,1,0}, b);
+            // THIS.orientation = (Quaternion){0,0,0,1};
+        }
 
-        // rotate
-        // float b = powf(sin(pct * PI * 2 - PI * 8), 5) / rate;
-        // THIS.translation.x = 0.0f;
-        // THIS.translation.y = 0.0f;
-        // THIS.translation.z = 0.0f;
-        // THIS.orientation = QuaternionFromAxisAngle((Vector3){0,1,0}, b);
-        // // THIS.orientation = (Quaternion){0,0,0,1};
         UpdateStewart(THIS.translation, THIS.orientation);
 
         // Draw
