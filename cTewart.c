@@ -15,6 +15,7 @@
 // TODO: to be added in a structure
 float pct = 0.00f;
 float rate = 0.98f;
+float dtFactor = 0.5f;
 float leftBoundary = 900.0f;
 bool init = 0;
 
@@ -71,6 +72,17 @@ void getLegs(){
 
 }
 
+void calcT0(){
+    THIS.T0 = (Vector3){
+        0.0f,
+        sqrtf(THIS.rodLength * THIS.rodLength + THIS.hornLength * THIS.hornLength
+        - powf(THIS.P[0].x - THIS.B[0].x, 2)
+        - powf(THIS.P[0].z - THIS.B[0].z, 2)),
+        0.0f
+    };
+}
+
+
 void _initParameters(cTewart *sp){
 
     // Initialization
@@ -104,7 +116,8 @@ void _initParameters(cTewart *sp){
         .plat = {
                     .pos = {0.0f, 0.0f, 0.0f},
                     .radius = 5.0f,
-                    .anchorDistance = 2.0f / 8.0f
+                    .anchorDistance = 2.0f / 8.0f,
+                    // .orientation_matrix_f = (float*)0
                 },
     };
 }
@@ -124,18 +137,11 @@ void InitStewart(){
         THIS.H[i] = zero_vec;
     }
 
-    THIS.T0 = (Vector3){
-        0.0f,
-        sqrtf(THIS.rodLength * THIS.rodLength + THIS.hornLength * THIS.hornLength
-        - powf(THIS.P[0].x - THIS.B[0].x, 2)
-        - powf(THIS.P[0].z - THIS.B[0].z, 2)),
-        0.0f
-
-    };
+    calcT0();
     TraceLog(LOG_INFO, "THIS.T0 = %.2f %.2f %.2f", THIS.T0.x, THIS.T0.y, THIS.T0.z );
     // TODO: remove this and try to use matrices to translate and rotate
     // or maybe not, I can still keep this ..idk
-    PLAT.pos = THIS.T0;
+    // PLAT.pos = THIS.T0;
 
 }
 
@@ -146,27 +152,19 @@ void UpdateStewart(Vector3 translation, Quaternion orientation){
     for (size_t i = 0; i < 6; i++)
     {
         o = Vector3RotateByQuaternion(THIS.P[i], orientation);
-        // TraceLog(LOG_INFO, "%d, o = %.2f %.2f %.2f", i, o.x, o.y, o.z);
-        // DrawCylinderEx(zero_vec, o, 0.02, 0.02, 20, BLUE);
 
         THIS.q[i].x = translation.x + o.x;
         THIS.q[i].y = translation.y + o.y + THIS.T0.y;
         THIS.q[i].z = translation.z + o.z ;
-
-        // Draw q vectors
-        DrawCylinderEx(zero_vec, THIS.q[i], 0.01, 0.01, 20, DARKGRAY);
-
+        // TraceLog(LOG_INFO, " THIS.q[i] = %.2f %.2f %.2f",  THIS.q[i].x,  THIS.q[i].y,  THIS.q[i].z );
         THIS.l[i].x = THIS.q[i].x - THIS.B[i].x;
         THIS.l[i].y = THIS.q[i].y - THIS.B[i].y;
         THIS.l[i].z = THIS.q[i].z - THIS.B[i].z;
 
-        // Draw l vectors
-        DrawCylinderEx(THIS.B[i], THIS.q[i], 0.01, 0.01, 20, DARKGRAY);
-
         float gk = (THIS.l[i].x * THIS.l[i].x) + (THIS.l[i].y * THIS.l[i].y) + (THIS.l[i].z * THIS.l[i].z) - ((THIS.rodLength * THIS.rodLength) + (THIS.hornLength * THIS.hornLength));
         float ek = 2 * THIS.hornLength * THIS.l[i].y ;
         float fk = 2 * THIS.hornLength * (THIS.cosBeta[i] * THIS.l[i].x + THIS.sinBeta[i] * THIS.l[i].z);
-        // TraceLog(LOG_INFO, "%d, gk = %.2f ek = %.2f fk = %.2f", i, gk, ek, fk);
+
         float sqSum = ek * ek + fk * fk;
         float sq1 = sqrtf(1 - gk * gk / sqSum);
         float sq2 = sqrtf(sqSum);
@@ -176,18 +174,8 @@ void UpdateStewart(Vector3 translation, Quaternion orientation){
         THIS.H[i].x = THIS.B[i].x + THIS.hornLength * cosAlpha * THIS.cosBeta[i];
         THIS.H[i].y = THIS.B[i].y + THIS.hornLength * sinAlpha;
         THIS.H[i].z = THIS.B[i].z + THIS.hornLength * cosAlpha * THIS.sinBeta[i];
-
-        DrawCylinderEx(THIS.B[i], THIS.H[i] , 0.08, 0.08,20, PURPLE);
-
-        DrawSphere(THIS.q[i], 0.2f, BLUE);
-        DrawSphere(THIS.H[i], 0.2f, BLUE);
-
-        // Draw joints
-        DrawSphere(THIS.P[i], 0.2f, RED);
-        DrawSphere(THIS.B[i], 0.2f, RED);
-        // Draw rods
-        DrawCylinderEx(THIS.H[i], THIS.q[i] , 0.08, 0.08,20, PURPLE);
     }
+
 }
 
 // frames are drawn based on the platforms positions but
@@ -230,24 +218,62 @@ void _drawFrame(Vector3 refPos){
 void DrawRefFrames(){
     // Draw frame on base platform
     _drawFrame(BASE.pos);
-    // Draw frame on platform also
-    _drawFrame(PLAT.pos);
 }
 
 void DrawStewart(){
-    Color platColor = Fade(SKYBLUE, 0.5f); // Set the alpha channel to 0.5 (50% transparency)
-    Color baseColor = Fade(YELLOW, 0.5f); // Set the alpha channel to 0.5 (50% transparency)
-    float thick = 0.001f;
+    Color platColor = Fade(SKYBLUE, 0.7f); // Set the alpha channel to 0.5 (50% transparency)
+    Color baseColor = Fade(YELLOW, 0.7f); // Set the alpha channel to 0.5 (50% transparency)
+    float thick = 0.003f;
     Vector3 endposB = {BASE.pos.x, BASE.pos.y+thick, BASE.pos.z};
     Vector3 endposP = {PLAT.pos.x, PLAT.pos.y+thick, PLAT.pos.z};
+    // Get the rotation matrix based on quaternion rotation
+    Matrix rotationM = QuaternionToMatrix(THIS.orientation);
+    // Generate translation matrix to platform position
+    Matrix translationM = MatrixTranslate(THIS.translation.x, THIS.translation.y + THIS.T0.y, THIS.translation.z);
+    // Multiply translation matrix with rotation matrix
+    Matrix combinedM = MatrixMultiply(rotationM, translationM);
+    for (size_t i = 0; i < 6; i++)
+    {
+        rlPushMatrix();
+            // Draw q vectors
+            DrawCylinderEx(zero_vec, THIS.q[i], 0.01, 0.01, 20, DARKGRAY);
+            // Draw l vectors
+            DrawCylinderEx(THIS.B[i], THIS.q[i], 0.01, 0.01, 20, DARKGRAY);
+            // Draw horns
+            DrawCylinderEx(THIS.B[i], THIS.H[i] , 0.08, 0.08,20, PURPLE);
+            // Draw rods
+            DrawCylinderEx(THIS.H[i], THIS.q[i] , 0.08, 0.08,20, PURPLE);
+            // DrawSphere(THIS.q[i], 0.2f, BLUE);
+            DrawSphere(THIS.H[i], 0.2f, BLUE);
+            // Draw joints
+            DrawSphere(THIS.B[i], 0.2f, RED);
+
+            rlPushMatrix();
+                rlMultMatrixf(MatrixToFloat(combinedM));
+                DrawSphere(THIS.P[i], 0.2f, RED);
+                // Draw frame on platform also
+                _drawFrame(zero_vec);
+                // Draw plate
+                DrawCylinderEx(zero_vec, endposP, PLAT.radius, PLAT.radius, 30, platColor);
+                DrawCylinderWiresEx(zero_vec, endposP, PLAT.radius, PLAT.radius, 30, platColor);
+            rlPopMatrix();
+        rlPopMatrix();
+    }
+
     DrawCylinderEx(BASE.pos, endposB, BASE.radius, BASE.radius, 30, baseColor);
     DrawCylinderWiresEx(BASE.pos, endposB, BASE.radius, BASE.radius, 30, baseColor);
-    DrawCylinderEx(PLAT.pos, endposP, PLAT.radius, PLAT.radius, 30, platColor);
-    DrawCylinderWiresEx(PLAT.pos, endposP, PLAT.radius, PLAT.radius, 30, platColor);
+
+}
+
+void Draw(){
+    DrawRefFrames();
+    DrawStewart();
 }
 
 void DrawSliders()
 {
+    float _rodL = THIS.rodLength;
+    float _hornL = THIS.hornLength;
     THIS.hornLength = GuiSliderBar((Rectangle){ leftBoundary, 40, 250, 20 },
                                     "horn length", TextFormat("%.2f", THIS.hornLength),
                                     THIS.hornLength,
@@ -256,6 +282,11 @@ void DrawSliders()
                                     "rod length", TextFormat("%.2f", THIS.rodLength),
                                     THIS.rodLength,
                                     0, 20);
+    if ((THIS.rodLength != _rodL) || (THIS.hornLength != _hornL))
+    {
+        calcT0();
+    }
+
     BASE.shaftDistance = GuiSliderBar((Rectangle){ leftBoundary, 100, 250, 20 },
                                     "shaftDistance", TextFormat("%.2f", BASE.shaftDistance),
                                     BASE.shaftDistance,
@@ -268,7 +299,11 @@ void DrawSliders()
                                     "rate length", TextFormat("%.2f", rate),
                                     rate,
                                     -1, 1);
-    init = GuiCheckBox((Rectangle){ leftBoundary, 190, 20, 20 }, "init?", init);
+    dtFactor = GuiSliderBar((Rectangle){ leftBoundary, 190, 250, 20 },
+                                    "dtFactor", TextFormat("%.2f", dtFactor),
+                                    dtFactor,
+                                    0, 1);
+    init = GuiCheckBox((Rectangle){ leftBoundary, 210, 20, 20 }, "init?", init);
 }
 
 //------------------------------------------------------------------------------------
@@ -308,37 +343,36 @@ int main(void)
         }
         //----------------------------------------------------------------------------------
 
+        // wobble effect
+        float b = pct * 2.0f * PI;
+        THIS.translation.x = cos(-b) * 2.0f * rate;
+        THIS.translation.y = 0.0f;
+        THIS.translation.z = sin(-b) * 2.0f * rate;
+        Quaternion o = (Quaternion){-cos(b), 0 , sin(b), rate * 10};
+        THIS.orientation = QuaternionNormalize(o);
+
+        // rotate
+        // float b = powf(sin(pct * PI * 2 - PI * 8), 5) / rate;
+        // THIS.translation.x = 0.0f;
+        // THIS.translation.y = 0.0f;
+        // THIS.translation.z = 0.0f;
+        // THIS.orientation = QuaternionFromAxisAngle((Vector3){0,1,0}, b);
+        // // THIS.orientation = (Quaternion){0,0,0,1};
+        UpdateStewart(THIS.translation, THIS.orientation);
+
         // Draw
         //----------------------------------------------------------------------------------
         BeginDrawing();
         ClearBackground(RAYWHITE);
         BeginMode3D(camera);
 
-        DrawRefFrames();
-        DrawStewart();
-        // wobble effect
-        // float b = pct * 2.0f * PI;
-        // THIS.translation.x = cos(-b) * 0.0f;
-        // THIS.translation.y = 0.0f;
-        // THIS.translation.z = sin(-b) * 0.0f;
-        // THIS.orientation = (Quaternion){-cos(b), 0 , sin(b), rate};
-        // QuaternionNormalize(THIS.orientation);
-
-        // rotate
-        float b = powf(sin(pct * PI * 2 - PI * 8), 5) / rate;
-        THIS.translation.x = 0.0f;
-        THIS.translation.y = 0.0f;
-        THIS.translation.z = 0.0f;
-        THIS.orientation = QuaternionFromAxisAngle((Vector3){0,1,0}, b);
-        // THIS.orientation = (Quaternion){0,0,0,1};
-        UpdateStewart(THIS.translation, THIS.orientation);
-
-        // increment pct
-        pct += 0.001f;
-        if (pct > 1.0f) {pct=0.0f;};
+        Draw();
 
         DrawGrid(50, 1.0f);
         EndMode3D();
+        // increment pct
+        pct += (GetFrameTime() * dtFactor);
+        if (pct > 1.0f) {pct=0.0f;};
 
         // Draw GUI controls
         DrawSliders();
