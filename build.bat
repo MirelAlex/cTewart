@@ -11,8 +11,8 @@ set WINDS="C:\Program Files (x86)\Windows Kits\10\Include\10.0.19041.0\shared"
 set WIND="C:\Program Files (x86)\Windows Kits\10\Include\10.0.19041.0\um"
 set WINDL="C:\Program Files (x86)\Windows Kits\10\Lib\10.0.19041.0\um\x86"
 
-:: Check if FILENAME argument is provided, otherwise set a default value
-:: --------------------------------------------------------------------
+:: Check if FILENAME argument is provided and set it as filename, otherwise set a default value
+:: --------------------------------------------------------------------------------------------
 if "%1"=="" (
   set FILENAME=cTewart
   set FILENAME_FULL_PATH=%CD%/cTewart
@@ -20,26 +20,45 @@ if "%1"=="" (
   set FILENAME=%1
   set FILENAME_FULL_PATH=%~f1
 )
+echo === Filename set to "%FILENAME%"
+echo === Fullpath set to "%FILENAME_FULL_PATH%.exe"
+
 
 :: Compilation variables
 :: ----------------------
-set CFLAGS=-O3 -Wall -Wextra -I./thirdparty/ -I%RAYLIB_INCLUDE_DIR% -I%GLFW_INCLUDE_DIR% 
+set CMD=%SystemRoot%\System32\cmd.exe
+set CFLAGS=-O3 -Wall -Wextra -Wunused-parameter -I%RAYLIB_INCLUDE_DIR% -I%GLFW_INCLUDE_DIR%
 set LIBS=-L%RAYLIB_LIB_DIR% -L%GLFW_LIB_DIR% -lraylib -lglfw3 -lopengl32 -lgdi32 -lwinmm
+
 :: Extend path
 :: ------------
 set PATH=%COMPILER_DIR%;%PATH%
-@echo on
-:: Cleaning latest build
-:: ---------------------------
-%SystemRoot%\System32\cmd.exe /c if exist %FILENAME_FULL_PATH%.exe del /F %FILENAME_FULL_PATH%.exe
 
+:: Cleaning latest build (cTewart / other exec)
+:: --------------------------------------------
+if /I "%FILENAME%"=="cTewart" (
+  if exist "%FILENAME_FULL_PATH%.exe" (
+    del /F "%FILENAME_FULL_PATH%.exe"
+    echo === "%FILENAME%.exe" already existed -> cleaned successfully.
+  ) else (
+    echo === "%FILENAME%.exe" not found, no need to clear.
+  )
+) else (
+  if exist "%FILENAME_FULL_PATH%.exe" (
+    del /F "%FILENAME_FULL_PATH%.exe"
+    echo === "%FILENAME%.exe" already existed -> cleaned successfully.
+  ) else (
+    echo === "%FILENAME%.exe" not found, no need to clear.
+  )
+)
 
 :: Compilation
 :: ------------
 %COMPILER_DIR%/gcc.exe %CFLAGS% -o %FILENAME%.exe %FILENAME%.c %LIBS%
 
-
 :: Executing program
-:: -------------------------
-%SystemRoot%\System32\cmd.exe /c if exist %FILENAME_FULL_PATH%.exe %FILENAME_FULL_PATH%.exe
-::start %FILENAME_FULL_PATH%.exe
+:: -----------------
+if exist "%FILENAME_FULL_PATH%.exe" (
+  echo === Running "%FILENAME%.exe"...
+  %CMD% /c %FILENAME_FULL_PATH%.exe
+)
