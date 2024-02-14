@@ -39,14 +39,14 @@ set PATH=%COMPILER_DIR%;%PATH%
 if /I "%FILENAME%"=="cTewart" (
   if exist "%FILENAME_FULL_PATH%.exe" (
     del /F "%FILENAME_FULL_PATH%.exe"
-    echo === "%FILENAME%.exe" already existed -> cleaned successfully.
+    echo === "%FILENAME%.exe" already existed -- cleaned successfully.
   ) else (
     echo === "%FILENAME%.exe" not found, no need to clear.
   )
 ) else (
   if exist "%FILENAME_FULL_PATH%.exe" (
     del /F "%FILENAME_FULL_PATH%.exe"
-    echo === "%FILENAME%.exe" already existed -> cleaned successfully.
+    echo === "%FILENAME%.exe" already existed -- cleaned successfully.
   ) else (
     echo === "%FILENAME%.exe" not found, no need to clear.
   )
