@@ -17,7 +17,17 @@ float pct = 0.00f;
 float rate = 0.98f;
 float dtFactor = 0.5f;
 float leftBoundary = 900.0f;
-bool wobble = 0;
+bool drawVectors = 0;
+
+typedef enum {
+    WOBBLE,
+    ROTATE
+} AnimationType;
+
+
+AnimationType animationTypeActive = WOBBLE;
+bool animationTypeEditMode = false;
+
 
 // Custom logging function
 void CustomLog(int msgType, const char *text, va_list args)
@@ -232,10 +242,14 @@ void DrawStewart(){
     for (size_t i = 0; i < 6; i++)
     {
         rlPushMatrix();
-            // Draw q vectors
-            DrawCylinderEx(zero_vec, THIS.q[i], 0.01, 0.01, 20, DARKGRAY);
-            // Draw l vectors
-            DrawCylinderEx(THIS.B[i], THIS.q[i], 0.01, 0.01, 20, DARKGRAY);
+            if (drawVectors)
+            {
+                // Draw q vectors
+                DrawCylinderEx(zero_vec, THIS.q[i], 0.01, 0.01, 20, DARKGRAY);
+                // Draw l vectors
+                DrawCylinderEx(THIS.B[i], THIS.q[i], 0.01, 0.01, 20, DARKGRAY);
+            }
+
             // Draw horns
             DrawCylinderEx(THIS.B[i], THIS.H[i] , 0.08, 0.08,20, PURPLE);
             // Draw rods
@@ -268,12 +282,41 @@ void Draw(){
     DrawStewart();
 }
 
+void RunAnimation(){
+    float b = 0;
+    switch (animationTypeActive)
+    {
+        case WOBBLE:
+            // wobble effect
+            b = pct * 2.0f * PI;
+            THIS.translation.x = cos(-b) * 2.0f * rate;
+            THIS.translation.y = 0.0f;
+            THIS.translation.z = sin(-b) * 2.0f * rate;
+            Quaternion o = (Quaternion){-cos(b), 0 , sin(b), rate * 10};
+            THIS.orientation = QuaternionNormalize(o);
+            break;
+        case ROTATE:
+            // rotate
+            b = powf(sin(pct * PI * 2 - PI * 8), 5) / rate;
+            THIS.translation.x = 0.0f;
+            THIS.translation.y = 0.0f;
+            THIS.translation.z = 0.0f;
+            THIS.orientation = QuaternionFromAxisAngle((Vector3){0,1,0}, b);
+            break;
+        default:
+            break;
+    }
+}
+
 void DrawSliders()
 {
     float _rodL = THIS.rodLength;
     float _hornL = THIS.hornLength;
     float _sD = BASE.shaftDistance;
     float _aD = PLAT.anchorDistance;
+    // Check all possible UI states that require controls lock
+    if (animationTypeEditMode) GuiLock();
+
     THIS.hornLength = GuiSliderBar((Rectangle){ leftBoundary, 40, 250, 20 },
                                     "horn length", TextFormat("%.2f", THIS.hornLength),
                                     THIS.hornLength,
@@ -319,7 +362,15 @@ void DrawSliders()
                                     "dtFactor", TextFormat("%.2f", dtFactor),
                                     dtFactor,
                                     0, 1);
-    wobble = GuiCheckBox((Rectangle){ leftBoundary, 220, 20, 20 }, "wobble/rotate", wobble);
+    drawVectors = GuiCheckBox((Rectangle){ leftBoundary, 220, 20, 20 }, "show q/l vectors?", drawVectors);
+
+    GuiUnlock();
+
+    GuiLabel((Rectangle){ leftBoundary, 250, 20, 20 }, "Animation type:");
+    if (GuiDropdownBox((Rectangle){ leftBoundary, 20 + 250, 140, 28 }, "WOBBLE;ROTATE", (int*)&animationTypeActive, animationTypeEditMode)){
+        animationTypeEditMode = !animationTypeEditMode;
+    }
+
 }
 
 //------------------------------------------------------------------------------------
@@ -359,46 +410,25 @@ int main(void)
         }
         //----------------------------------------------------------------------------------
 
-        if (wobble){
-            // wobble effect
-            float b = pct * 2.0f * PI;
-            THIS.translation.x = cos(-b) * 2.0f * rate;
-            THIS.translation.y = 0.0f;
-            THIS.translation.z = sin(-b) * 2.0f * rate;
-            Quaternion o = (Quaternion){-cos(b), 0 , sin(b), rate * 10};
-            THIS.orientation = QuaternionNormalize(o);
-        }else{
-            // rotate
-            float b = powf(sin(pct * PI * 2 - PI * 8), 5) / rate;
-            THIS.translation.x = 0.0f;
-            THIS.translation.y = 0.0f;
-            THIS.translation.z = 0.0f;
-            THIS.orientation = QuaternionFromAxisAngle((Vector3){0,1,0}, b);
-            // THIS.orientation = (Quaternion){0,0,0,1};
-        }
+        RunAnimation();
 
         UpdateStewart(THIS.translation, THIS.orientation);
 
         // Draw
         //----------------------------------------------------------------------------------
         BeginDrawing();
-        ClearBackground(RAYWHITE);
-        BeginMode3D(camera);
-
-        Draw();
-
-        DrawGrid(50, 1.0f);
-        EndMode3D();
-        // increment pct
-        pct += (GetFrameTime() * dtFactor);
-        if (pct > 1.0f) {pct=0.0f;};
-
-        // Draw GUI controls
-        DrawSliders();
-
-        //------------------------------------------------------------------------------
-        DrawText("Stewart Platform Simulation", 10, 10, 20, BLACK);
-
+            ClearBackground(RAYWHITE);
+            BeginMode3D(camera);
+                Draw();
+                DrawGrid(50, 1.0f);
+            EndMode3D();
+            // increment pct
+            pct += (GetFrameTime() * dtFactor);
+            if (pct > 1.0f) {pct=0.0f;};
+            // Draw GUI controls
+            DrawSliders();
+            //------------------------------------------------------------------------------
+            DrawText("Stewart Platform Simulation", 10, 10, 20, BLACK);
         EndDrawing();
         //----------------------------------------------------------------------------------
     }
