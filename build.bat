@@ -4,12 +4,18 @@
 :: --------------------------
 set RAYLIB_INCLUDE_DIR=C:\raylib\raylib\src
 set RAYLIB_LIB_DIR=C:\raylib\raylib\src
-set GLFW_INCLUDE_DIR=C:\glfw-3.3.8.bin.WIN64\include\GLFW
-set GLFW_LIB_DIR=C:\glfw-3.3.8.bin.WIN64\lib-mingw-w64
+:: set GLFW_INCLUDE_DIR=C:\glfw-3.3.8.bin.WIN64\include\GLFW
+:: set GLFW_LIB_DIR=C:\glfw-3.3.8.bin.WIN64\lib-mingw-w64
 set COMPILER_DIR=C:\raylib\w64devkit\bin
-set WINDS="C:\Program Files (x86)\Windows Kits\10\Include\10.0.19041.0\shared"
-set WIND="C:\Program Files (x86)\Windows Kits\10\Include\10.0.19041.0\um"
-set WINDL="C:\Program Files (x86)\Windows Kits\10\Lib\10.0.19041.0\um\x86"
+::set WINDS="C:\Program Files (x86)\Windows Kits\10\Include\10.0.19041.0\shared"
+::set WIND="C:\Program Files (x86)\Windows Kits\10\Include\10.0.19041.0\um"
+::set WINDL="C:\Program Files (x86)\Windows Kits\10\Lib\10.0.19041.0\um\x86"
+
+:: Set build folder and cd to it, if already exists just cd to it
+:: ---------------------------------------------------------------
+set BUILD_DIR=build
+mkdir %BUILD_DIR% 2>nul
+cd %BUILD_DIR%
 
 :: Check if FILENAME argument is provided and set it as filename, otherwise set a default value
 :: --------------------------------------------------------------------------------------------
@@ -23,12 +29,11 @@ if "%1"=="" (
 echo === Filename set to "%FILENAME%"
 echo === Fullpath set to "%FILENAME_FULL_PATH%.exe"
 
-
 :: Compilation variables
 :: ----------------------
 set CMD=%SystemRoot%\System32\cmd.exe
-set CFLAGS=-O3 -Wall -Wextra -Wunused-parameter -I%RAYLIB_INCLUDE_DIR% -I%GLFW_INCLUDE_DIR%
-set LIBS=-L%RAYLIB_LIB_DIR% -L%GLFW_LIB_DIR% -lraylib -lglfw3 -lopengl32 -lgdi32 -lwinmm
+set CFLAGS=-O3 -Wall -Wextra -Wunused-parameter -I%RAYLIB_INCLUDE_DIR%
+set LIBS=-L%RAYLIB_LIB_DIR% -lraylib -lopengl32 -lgdi32 -lwinmm
 
 :: Extend path
 :: ------------
@@ -54,7 +59,7 @@ if /I "%FILENAME%"=="cTewart" (
 
 :: Compilation
 :: ------------
-%COMPILER_DIR%/gcc.exe %CFLAGS% -o %FILENAME%.exe %FILENAME%.c %LIBS%
+%COMPILER_DIR%/gcc.exe %CFLAGS% -o %FILENAME%.exe ../src/%FILENAME%.c %LIBS%
 
 :: Executing program
 :: -----------------
