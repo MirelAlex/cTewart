@@ -1,0 +1,28 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"*.pycfg": "python",
+			"*.cms21": "json",
+			".env": "log",
+			"windows.h": "c",
+			"types.h": "c",
+			"stb_image.h": "c",
+			"nn.h": "c",
+			"stdint.h": "c",
+			"shared_constants.h": "c",
+			"raylib.h": "c",
+			"raygui.h": "c",
+			"ctewart.h": "c"
+		},
+		"workbench.colorCustomizations": {
+			"activityBar.background": "#173230",
+			"titleBar.activeBackground": "#214643",
+			"titleBar.activeForeground": "#F7FBFB"
+		}
+	}
+}
