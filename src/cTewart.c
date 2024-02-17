@@ -5,9 +5,9 @@
 #include "rlgl.h"
 #include "raymath.h"  // Include the raymath header
 #define RAYGUI_IMPLEMENTATION
-#include "raygui.h"                 // Required for GUI controls
+#include "../include/raygui.h"                 // Required for GUI controls
 
-#include "cTewart.h"
+#include "../include/cTewart.h"
 
 #define SCREEN_WIDTH 1200
 #define SCREEN_HEIGHT 675

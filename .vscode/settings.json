@@ -9,5 +9,10 @@
         "stdint.h": "c",
         "shared_constants.h": "c",
         "raylib.h": "c"
+    },
+    "workbench.colorCustomizations": {
+        "activityBar.background": "#173230",
+        "titleBar.activeBackground": "#214643",
+        "titleBar.activeForeground": "#F7FBFB"
     }
 }

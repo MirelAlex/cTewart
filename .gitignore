@@ -1,6 +1,5 @@
-xor
-adder
-img2nn
 *.swp
 *.exe
+./build
 raylib.h
+raygui.h
