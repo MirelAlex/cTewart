@@ -12,22 +12,14 @@
 #define SCREEN_WIDTH 1200
 #define SCREEN_HEIGHT 675
 
+#define PLOT_HEIGHT 360
+
 // TODO: to be added in a structure
-float pct = 0.00f;
-float rate = 0.98f;
-float dtFactor = 0.5f;
+float amplitude = 0.98f;
 float leftBoundary = 900.0f;
 bool drawVectors = 0;
-
-typedef enum {
-    WOBBLE,
-    ROTATE
-} AnimationType;
-
-
-AnimationType animationTypeActive = WOBBLE;
-bool animationTypeEditMode = false;
-
+Vector2 buffer[SCREEN_WIDTH] = {(Vector2){0,0}};
+uint16 buffer_length = 0;
 
 // Custom logging function
 void CustomLog(int msgType, const char *text, va_list args)
@@ -103,12 +95,12 @@ void _initParameters(cTewart *sp){
         .legsLength = 3.0f,
         .hornLength = 5.0f,
         .rodLength = 13.0f,
-        .legs={ {zero_vec, zero_vec, 0.0f},
-                {zero_vec, zero_vec, 0.0f},
-                {zero_vec, zero_vec, 0.0f},
-                {zero_vec, zero_vec, 0.0f},
-                {zero_vec, zero_vec, 0.0f},
-                {zero_vec, zero_vec, 0.0f},
+        .legs={ {zero_vec, zero_vec, 0.0f, 0.0f},
+                {zero_vec, zero_vec, 0.0f, 0.0f},
+                {zero_vec, zero_vec, 0.0f, 0.0f},
+                {zero_vec, zero_vec, 0.0f, 0.0f},
+                {zero_vec, zero_vec, 0.0f, 0.0f},
+                {zero_vec, zero_vec, 0.0f, 0.0f},
         },
         .B={zero_vec},
         .P={zero_vec},
@@ -132,6 +124,15 @@ void _initParameters(cTewart *sp){
     };
 }
 
+void InitAnimation(Animation *a){
+    *a = (Animation){
+        .pct = 0.0f,
+        .dtFactor = 0.5f, // animation speed factor
+        .animationTypeActive = WOBBLE,
+        .animationTypeEditMode = false
+    };
+}
+
 void InitStewart(){
 
     _initParameters(&stewartPlatform);
@@ -152,7 +153,6 @@ void InitStewart(){
     // TODO: remove this and try to use matrices to translate and rotate
     // or maybe not, I can still keep this ..idk
     // PLAT.pos = THIS.T0;
-
 }
 
 void UpdateStewart(Vector3 translation, Quaternion orientation){
@@ -222,11 +222,6 @@ void _drawFrame(Vector3 refPos){
 
 }
 
-void DrawRefFrames(){
-    // Draw frame on base platform
-    _drawFrame(BASE.pos);
-}
-
 void DrawStewart(){
     Color platColor = Fade(SKYBLUE, 0.7f); // Set the alpha channel to 0.5 (50% transparency)
     Color baseColor = Fade(YELLOW, 0.7f); // Set the alpha channel to 0.5 (50% transparency)
@@ -259,7 +254,7 @@ void DrawStewart(){
             // Draw joints
             DrawSphere(THIS.B[i], 0.2f, RED);
 
-            // This rlPushMatrix doesn't work TODO: check why
+            // This rlPushMatrix doesn't work as expected in terms of rotation TODO: check why
             rlPushMatrix();
                 rlMultMatrixf(MatrixToFloat(combinedM));
                 DrawSphere(THIS.P[i], 0.2f, RED);
@@ -277,31 +272,45 @@ void DrawStewart(){
 
 }
 
-void Draw(){
-    DrawRefFrames();
-    DrawStewart();
-}
 
 void RunAnimation(){
     float b = 0;
-    switch (animationTypeActive)
+    switch (ANIM.animationTypeActive)
     {
         case WOBBLE:
             // wobble effect
-            b = pct * 2.0f * PI;
-            THIS.translation.x = cos(-b) * 2.0f * rate;
+            b = ANIM.pct * 2.0f * PI;
+            THIS.translation.x = cos(-b) * 2.0f * amplitude;
             THIS.translation.y = 0.0f;
-            THIS.translation.z = sin(-b) * 2.0f * rate;
-            Quaternion o = (Quaternion){-cos(b), 0 , sin(b), rate * 10};
+            THIS.translation.z = sin(-b) * 2.0f * amplitude;
+            Quaternion o = (Quaternion){-cos(b), 0 , sin(b), amplitude * 10};
             THIS.orientation = QuaternionNormalize(o);
             break;
         case ROTATE:
             // rotate
-            b = powf(sin(pct * PI * 2 - PI * 8), 5) / rate;
+            b = powf(sin(ANIM.pct * PI * 2 - PI * 8), 5) / amplitude;
             THIS.translation.x = 0.0f;
             THIS.translation.y = 0.0f;
             THIS.translation.z = 0.0f;
             THIS.orientation = QuaternionFromAxisAngle((Vector3){0,1,0}, b);
+            break;
+        case TILT:
+            // tilt on 2 axis
+            Vector3 v;
+            b = powf(sin(ANIM.pct * PI * 2 - PI * 8), 5) / (amplitude+1);
+            THIS.translation.x = 0.0f;
+            THIS.translation.y = 0.0f;
+            THIS.translation.z = 0.0f;
+            // printf("1/2: %f\n",(float)(1.0/2.0));
+            // printf("under: %f\n",ANIM.pct);
+            // printf("over: %f\n",ANIM.pct);
+            if (ANIM.pct < (float)(1.0/2.0))
+            {
+                v = (Vector3){1,0,0};
+            }else{
+                v = (Vector3){0,0,1};
+            }
+            THIS.orientation = QuaternionFromAxisAngle(v, b);
             break;
         default:
             break;
@@ -315,7 +324,7 @@ void DrawSliders()
     float _sD = BASE.shaftDistance;
     float _aD = PLAT.anchorDistance;
     // Check all possible UI states that require controls lock
-    if (animationTypeEditMode) GuiLock();
+    if (ANIM.animationTypeEditMode) GuiLock();
 
     THIS.hornLength = GuiSliderBar((Rectangle){ leftBoundary, 40, 250, 20 },
                                     "horn length", TextFormat("%.2f", THIS.hornLength),
@@ -325,7 +334,7 @@ void DrawSliders()
                                     "rod length", TextFormat("%.2f", THIS.rodLength),
                                     THIS.rodLength,
                                     0, 20);
-    // TODO: rewrite this
+    // TODO: rewrite this / move it
     if ((THIS.rodLength != _rodL) || (THIS.hornLength != _hornL))
     {
         calcT0();
@@ -339,7 +348,7 @@ void DrawSliders()
                                     "anchorDsitance", TextFormat("%.2f", PLAT.anchorDistance),
                                     PLAT.anchorDistance,
                                     0, 1); // 1 is perfectly symetrical
-    // TODO: rewrite this
+    // TODO: rewrite this / move
     if ((BASE.shaftDistance!= _sD) || (PLAT.anchorDistance != _aD))
     {
         getLegs();
@@ -354,22 +363,54 @@ void DrawSliders()
             THIS.H[i] = zero_vec;
         }
     }
-    rate = GuiSliderBar((Rectangle){ leftBoundary, 160, 250, 20 },
-                                    "rate length", TextFormat("%.2f", rate),
-                                    rate,
+    amplitude = GuiSliderBar((Rectangle){ leftBoundary, 160, 250, 20 },
+                                    "amplitude", TextFormat("%.2f", amplitude),
+                                    amplitude,
                                     -1, 1);
-    dtFactor = GuiSliderBar((Rectangle){ leftBoundary, 190, 250, 20 },
-                                    "dtFactor", TextFormat("%.2f", dtFactor),
-                                    dtFactor,
+    ANIM.dtFactor = GuiSliderBar((Rectangle){ leftBoundary, 190, 250, 20 },
+                                    "ANIM.dtFactor", TextFormat("%.2f", ANIM.dtFactor),
+                                    ANIM.dtFactor,
                                     0, 1);
     drawVectors = GuiCheckBox((Rectangle){ leftBoundary, 220, 20, 20 }, "show q/l vectors?", drawVectors);
 
     GuiUnlock();
 
     GuiLabel((Rectangle){ leftBoundary, 250, 20, 20 }, "Animation type:");
-    if (GuiDropdownBox((Rectangle){ leftBoundary, 20 + 250, 140, 28 }, "WOBBLE;ROTATE", (int*)&animationTypeActive, animationTypeEditMode)){
-        animationTypeEditMode = !animationTypeEditMode;
+    if (GuiDropdownBox((Rectangle){ leftBoundary, 20 + 250, 140, 28 }, "WOBBLE;ROTATE;TILT", (int*)&ANIM.animationTypeActive, ANIM.animationTypeEditMode)){
+        ANIM.animationTypeEditMode = !ANIM.animationTypeEditMode;
     }
+
+}
+
+void getServoAngles(){
+    for (size_t i = 0; i < 6; i++)
+    {
+        // TODO: maybe move angle somewhere else?
+        THIS.legs[i].angle = asinf((THIS.H[i].y - THIS.B[i].y) / THIS.hornLength) * RAD2DEG;
+        // TODO: limit the servo angle to a servo range
+        // printf("[%d] %.2f\n",i, RAD2DEG * THIS.legs[i].angle );
+    }
+}
+
+
+void DrawLegsAngles(){
+
+    static int x = 0.0f;
+    DrawRectangle(0, GetScreenHeight() - PLOT_HEIGHT, GetScreenWidth(), PLOT_HEIGHT, Fade(LIGHTGRAY, 0.3f));
+    getServoAngles();
+
+    // TODO: Normalize values to fit in graph
+    Vector2 point = {SCREEN_WIDTH-1, GetScreenHeight() - (PLOT_HEIGHT/2) + THIS.legs[0].angle};
+    buffer[buffer_length].x = point.x;
+    buffer[buffer_length].y = point.y;
+    buffer_length = (buffer_length + 1) % SCREEN_WIDTH;
+
+    // DrawSplineLinear(buffer, buffer_length, 3.0f, RED);
+    for (size_t i = 0; i < SCREEN_WIDTH - 1 ; i++)
+    {
+        DrawCircleV(buffer[i], 1, RED);
+    }
+
 
 }
 
@@ -398,7 +439,7 @@ int main(void)
 
     //----------------------------------------------------------
     InitStewart(&stewartPlatform);
-
+    InitAnimation(&ANIM);
     // Main game loop
     while (!WindowShouldClose()) // Detect window close button or ESC key
     {
@@ -414,17 +455,23 @@ int main(void)
 
         UpdateStewart(THIS.translation, THIS.orientation);
 
+
         // Draw
         //----------------------------------------------------------------------------------
         BeginDrawing();
             ClearBackground(RAYWHITE);
             BeginMode3D(camera);
-                Draw();
+                // Draw frame on base platform
+                _drawFrame(BASE.pos);
+                // Draw stewart platform + platform plate
+                DrawStewart();
                 DrawGrid(50, 1.0f);
             EndMode3D();
-            // increment pct
-            pct += (GetFrameTime() * dtFactor);
-            if (pct > 1.0f) {pct=0.0f;};
+            // plot legs angles
+            DrawLegsAngles();
+            // increment ANIM.pct
+            ANIM.pct += (GetFrameTime() * ANIM.dtFactor);
+            if (ANIM.pct > 1.0f) {ANIM.pct=0.0f;};
             // Draw GUI controls
             DrawSliders();
             //------------------------------------------------------------------------------
