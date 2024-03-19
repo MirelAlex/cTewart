@@ -66,7 +66,7 @@ void UpdatePlotWidget(PlotWidget* widget, float inputValue) {
     widget->buffer[widget->historyIndex] = inputValue;
 
     // Calculate new sine wave value
-    float newValuePlot = sinf(inputValue) * (RECT_HEIGHT / 2) / widget->zoom;
+    float newValuePlot = inputValue / widget->zoom;
 
     // Update history array
     widget->history[widget->historyIndex] = (int)newValuePlot;
@@ -169,8 +169,11 @@ int main(void)
         HandleZoomingWidget(&widget1);
 
         // Update the widget with new input value
-        float inputValue = GetTime(); //
+        float inputValue = sinf(GetTime()*10) * (RECT_HEIGHT / 2) * 4/PI; //
         UpdatePlotWidget(&widget, inputValue);
+        inputValue += sinf(GetTime()*30) * (RECT_HEIGHT / 6) * 4/PI; //
+        inputValue += sinf(GetTime()*50) * (RECT_HEIGHT / 10) * 4/PI; //
+        inputValue += sinf(GetTime()*70) * (RECT_HEIGHT / 14) * 4/PI; //
         UpdatePlotWidget(&widget1, inputValue);
 
         // Draw
