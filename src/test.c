@@ -2,169 +2,177 @@
 #include <math.h>
 
 #define MAX_HISTORY 100
-#define RECT_WIDTH 800
+#define RECT_WIDTH 300
 #define RECT_HEIGHT 200
 
-void DrawScaleLabels(Rectangle plotRect, int interval)
+typedef struct {
+    Rectangle rect;
+    int history[MAX_HISTORY];
+    float buffer[MAX_HISTORY]; // Store unaltered input values
+    int historyIndex;
+    int interval;
+    float zoom;
+} PlotWidget;
+
+void InitializePlotWidget(PlotWidget* widget, Rectangle rect) {
+    widget->rect = rect;
+    widget->historyIndex = 0;
+    widget->interval = RECT_HEIGHT / 5; // Initial interval between scale labels and grid lines
+    widget->zoom = 1.0f; // Initial zoom level
+}
+
+void DrawScaleLabels(Rectangle plotRect, int interval, float zoom)
 {
     // Calculate scale values
     int middle = RECT_HEIGHT / 2;
     int scale = 0;
-    int sc = 20;
-    // if      (interval > 60) { sc = 1;}
-    // else if (interval > 50) { sc = 5;}
-    // else if (interval > 40) { sc = 10;}
-    // else                    { sc = 20;}
+
+    // Adjust interval based on zoom level
+    int zoomedInterval = interval / zoom;
 
     // Draw scale labels and grid lines within the rectangle height
-    for (int i = 0; i < 12; i++)
+    for (int i = 0; i < 6; i++)
     {
-        int posY = plotRect.y + middle - interval * i;
+        int posY = plotRect.y + middle - zoomedInterval * i;
         if (posY >= plotRect.y && posY <= plotRect.y + plotRect.height)
         {
             DrawText(TextFormat("%d", scale), plotRect.x - 50, posY - 10, 10, GRAY);
             DrawLine(plotRect.x, posY, plotRect.x + plotRect.width, posY, Fade(GRAY, 0.3f));
         }
-        scale += sc;
+        scale += 20;
     }
 
-    scale = -sc;
+    scale = -20;
 
-    for (int i = 1; i < 12; i++)
+    for (int i = 1; i < 6; i++)
     {
-        int posY = plotRect.y + middle + interval * i;
+        int posY = plotRect.y + middle + zoomedInterval * i;
         if (posY >= plotRect.y && posY <= plotRect.y + plotRect.height)
         {
             DrawText(TextFormat("%d", scale), plotRect.x - 50, posY - 10, 10, GRAY);
             DrawLine(plotRect.x, posY, plotRect.x + plotRect.width, posY, Fade(GRAY, 0.3f));
         }
-        scale -= sc;
+        scale -= 20;
+    }
+}
+
+void UpdatePlotWidget(PlotWidget* widget, float inputValue) {
+    // Store unaltered input value in buffer
+    widget->buffer[widget->historyIndex] = inputValue;
+
+    // Calculate new sine wave value
+    float newValuePlot = sinf(inputValue) * (RECT_HEIGHT / 2) / widget->zoom;
+
+    // Update history array
+    widget->history[widget->historyIndex] = (int)newValuePlot;
+    widget->historyIndex = (widget->historyIndex + 1) % MAX_HISTORY;
+
+    // Rescale history values with the new zoom level FAIL
+    // for (int i = widget->historyIndex; i < MAX_HISTORY; i++) {
+    //     if (widget->zoom != 0)
+    //     {
+    //         /* code */
+    //         widget->history[i] = (int)(widget->history[i] / widget->zoom);
+    //     }
+
+    // }
+}
+
+void DrawPlotWidget(PlotWidget* widget) {
+    // Draw the movable rectangle
+    DrawRectangleLinesEx(widget->rect, 2, BLUE);
+
+    // Draw scale labels along y-axis
+    DrawScaleLabels(widget->rect, widget->interval, widget->zoom);
+
+    // Draw the scaled sine wave within the rectangle
+    for (int i = 0; i < MAX_HISTORY - 1; i++)
+    {
+        // Calculate positions of the points
+        float x1 = i * (widget->rect.width - 1) / (MAX_HISTORY - 1) + widget->rect.x + 1;
+        float y1 = widget->rect.y + RECT_HEIGHT / 2 - widget->history[(widget->historyIndex + i) % MAX_HISTORY];
+        float x2 = (i + 1) * (widget->rect.width - 1) / (MAX_HISTORY - 1) + widget->rect.x + 1;
+        float y2 = widget->rect.y + RECT_HEIGHT / 2 - widget->history[(widget->historyIndex + i + 1) % MAX_HISTORY];
+
+        // Draw line between points
+        if ((y1 > widget->rect.y) && (y2 > widget->rect.y) &&
+            (y1 < widget->rect.y+RECT_HEIGHT) && (y2 < widget->rect.y+RECT_HEIGHT))
+        {
+            DrawLine((int)x1, (int)y1, (int)x2, (int)y2, RED);
+        }
     }
 }
 
 int main(void)
 {
     // Initialization
-    const int screenWidth = 16*80;
-    const int screenHeight = 9*80;
+    const int screenWidth = 800;
+    const int screenHeight = 450;
 
     Rectangle plotRect = {screenWidth / 2 - RECT_WIDTH / 2, screenHeight / 2 - RECT_HEIGHT / 2, RECT_WIDTH, RECT_HEIGHT};
+    Rectangle plotRect1 = {screenWidth / 4 - RECT_WIDTH / 2, screenHeight / 4 - RECT_HEIGHT / 2, RECT_WIDTH, RECT_HEIGHT};
 
-    // Initialize array to store history
-    int history[MAX_HISTORY] = {0};
-    int historyIndex = 0;
-
-    int interval = RECT_HEIGHT / 5; // Initial interval between scale labels and grid lines
+    PlotWidget widget;
+    PlotWidget widget1;
+    InitializePlotWidget(&widget, plotRect);
+    InitializePlotWidget(&widget1, plotRect1);
 
     InitWindow(screenWidth, screenHeight, "Raylib Sine Wave Plot with Movable Rectangle");
 
     SetTargetFPS(60);
 
     bool dragging = false;
-    bool pause = false;
     Vector2 offset = {0};
-    float time = 0.0f;
+
     while (!WindowShouldClose()) // Main loop
     {
-            // Update
-            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+        // Update
+        Vector2 mousePos = GetMousePosition();
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+        {
+            if (CheckCollisionPointRec(mousePos, widget.rect))
             {
-                Vector2 mousePos = GetMousePosition();
-                if (CheckCollisionPointRec(mousePos, plotRect))
-                {
-                    dragging = true;
-                    offset.x = mousePos.x - plotRect.x;
-                    offset.y = mousePos.y - plotRect.y;
-                }
+                dragging = true;
+                offset.x = mousePos.x - widget.rect.x;
+                offset.y = mousePos.y - widget.rect.y;
             }
-            else if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
-            {
-                dragging = false;
-            }
+        }
+        else if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
+        {
+            dragging = false;
+        }
 
-            if (IsKeyPressed(KEY_SPACE)){pause = !pause;}
-            if (dragging)
-            {
-                plotRect.x = GetMouseX() - offset.x;
-                plotRect.y = GetMouseY() - offset.y;
-            }
+        if (dragging)
+        {
+            widget.rect.x = GetMouseX() - offset.x;
+            widget.rect.y = GetMouseY() - offset.y;
+        }
 
-            // Check for mouse scroll events to change the scale of the grid
-            int scroll = GetMouseWheelMove();
-            if (scroll != 0)
-            {
-                interval += scroll * 5;
-                if (interval < 10)
-                    interval = 10; // Prevent interval from becoming negative or too small
-            }
+        // Check for mouse scroll events to change the zoom level
+        int scroll = GetMouseWheelMove();
 
-            DrawText(TextFormat("interval = %d", interval), 20, 20, 10, GRAY);
-            DrawText(TextFormat("no of intervals = %d", RECT_HEIGHT/interval), 150, 20, 10, GRAY);
-            DrawText(TextFormat("scroll = %d", scroll), 20, 40, 10, GRAY);
+        if (CheckCollisionPointRec(mousePos, widget.rect) && scroll != 0)
+        {
+            widget.zoom += scroll * 0.1f; // Adjust zoom level
+            if (widget.zoom < 0.1f)
+                widget.zoom = 0.1f; // Prevent zoom level from becoming too small
+        }
 
-            // Calculate new sine wave value
-            float newValue;
-            if (sinf(time*8) > 0 )
-            {
-                newValue = 50;
-            }else{
-                newValue = -50;
-            }
-            DrawText(TextFormat("newValue = %f", newValue),20, screenHeight - 20, 10, GRAY);
-            // float scaleFactor = RECT_HEIGHT / 2.0f / (interval * 10); // Scale factor based on the interval
+        // Update the widget with new input value
+        float inputValue = GetTime(); //
+        UpdatePlotWidget(&widget, inputValue);
+        UpdatePlotWidget(&widget1, inputValue);
 
-            // Update history array
-            if (!pause)
-            {
-                // only when space is pressed
-                history[historyIndex] = (int)(newValue);
-                historyIndex = (historyIndex + 1) % MAX_HISTORY;
-            }
+        // Draw
+        BeginDrawing();
 
-            // Draw
-            BeginDrawing();
-                ClearBackground(RAYWHITE);
-                // Draw the movable rectangle
-                DrawRectangleLinesEx(plotRect, 2, BLUE);
-                // Draw scale labels along y-axis
-                DrawScaleLabels(plotRect, interval);
-                // Draw the scaled sine wave within the rectangle
-                float x1, y1;
-                float x2, y2 ;
-                for (int i = 0; i < MAX_HISTORY - 1; i++)
-                {
-                    // Calculate positions of the points
-                    x1 = i * (plotRect.width - 1) / (MAX_HISTORY - 1) + plotRect.x + 1;
-                    y1 = plotRect.y + RECT_HEIGHT / 2 - history[(historyIndex + i) % MAX_HISTORY];
-                    x2 = (i + 1) * (plotRect.width - 1) / (MAX_HISTORY - 1) + plotRect.x + 1;
-                    y2 = plotRect.y + RECT_HEIGHT / 2 - history[(historyIndex + i + 1) % MAX_HISTORY];
-                    // Draw line between points
-                    DrawLine((int)x1, (int)y1, (int)x2, (int)y2, RED);
-                    // Show buffer values down as text
-                    if (i%4 == 0)
-                    {
-                        history[(historyIndex + i) % MAX_HISTORY] > 0 ?
-                        DrawText(TextFormat("%d", history[(historyIndex + i) % MAX_HISTORY]),(int) x1, plotRect.y + RECT_HEIGHT, 5, GREEN) :
-                        DrawText(TextFormat("%d", history[(historyIndex + i) % MAX_HISTORY]),(int) x1, plotRect.y + RECT_HEIGHT, 5, RED);
-                        // indexes
-                        DrawText(TextFormat("%d", historyIndex + i),(int) x1, plotRect.y + RECT_HEIGHT + 20, 5, GRAY);
-                        if (i==0){DrawText("^ historyIndex", (int) x1, plotRect.y + RECT_HEIGHT + 40, 5, GRAY);}
+        ClearBackground(RAYWHITE);
 
-                        // values at indexes
-                        // DrawText(TextFormat("%d", historyIndex + i),(int) x1, plotRect.y + RECT_HEIGHT + 40, 5, GRAY);
-                    }
+        // Draw the plot widget
+        DrawPlotWidget(&widget);
+        DrawPlotWidget(&widget1);
 
-                }
-                DrawText(TextFormat("%d", history[0]),(int) x1 + 20, (int)y1, 10, GRAY);
-
-
-
-            EndDrawing();
-            if (!pause)
-            {
-                // only when space is pressed
-                time += 0.01;
-            }
+        EndDrawing();
     }
 
     // De-Initialization
