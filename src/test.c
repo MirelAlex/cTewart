@@ -12,6 +12,8 @@ typedef struct {
     int historyIndex;
     int interval;
     float zoom;
+    Vector2 offset;
+    bool dragging;
 } PlotWidget;
 
 void InitializePlotWidget(PlotWidget* widget, Rectangle rect) {
@@ -19,6 +21,9 @@ void InitializePlotWidget(PlotWidget* widget, Rectangle rect) {
     widget->historyIndex = 0;
     widget->interval = RECT_HEIGHT / 5; // Initial interval between scale labels and grid lines
     widget->zoom = 1.0f; // Initial zoom level
+    widget->offset.x = 0.0f;
+    widget->offset.y = 0.0f;
+    widget->dragging = false;
 }
 
 void DrawScaleLabels(Rectangle plotRect, int interval, float zoom)
@@ -103,6 +108,40 @@ void DrawPlotWidget(PlotWidget* widget) {
     }
 }
 
+void HandleMovingWidget(PlotWidget* w){
+    Vector2 mousePos = GetMousePosition();
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+    {
+        if (CheckCollisionPointRec(mousePos, w->rect))
+        {
+            w->dragging = true;
+            w->offset.x = mousePos.x - w->rect.x;
+            w->offset.y = mousePos.y - w->rect.y;
+        }
+    }
+    else if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
+    {
+        w->dragging = false;
+    }
+
+    if (w->dragging)
+    {
+        w->rect.x = GetMouseX() - w->offset.x;
+        w->rect.y = GetMouseY() - w->offset.y;
+    }
+}
+void HandleZoomingWidget(PlotWidget* w){
+    Vector2 mousePos = GetMousePosition();
+    // Check for mouse scroll events to change the zoom level
+    int scroll = GetMouseWheelMove();
+
+    if (CheckCollisionPointRec(mousePos, w->rect) && scroll != 0)
+    {
+        w->zoom += scroll * 0.1f; // Adjust zoom level
+        if (w->zoom < 0.1f)
+            w->zoom = 0.1f; // Prevent zoom level from becoming too small
+    }
+}
 int main(void)
 {
     // Initialization
@@ -121,42 +160,13 @@ int main(void)
 
     SetTargetFPS(60);
 
-    bool dragging = false;
-    Vector2 offset = {0};
-
     while (!WindowShouldClose()) // Main loop
     {
         // Update
-        Vector2 mousePos = GetMousePosition();
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-        {
-            if (CheckCollisionPointRec(mousePos, widget.rect))
-            {
-                dragging = true;
-                offset.x = mousePos.x - widget.rect.x;
-                offset.y = mousePos.y - widget.rect.y;
-            }
-        }
-        else if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
-        {
-            dragging = false;
-        }
-
-        if (dragging)
-        {
-            widget.rect.x = GetMouseX() - offset.x;
-            widget.rect.y = GetMouseY() - offset.y;
-        }
-
-        // Check for mouse scroll events to change the zoom level
-        int scroll = GetMouseWheelMove();
-
-        if (CheckCollisionPointRec(mousePos, widget.rect) && scroll != 0)
-        {
-            widget.zoom += scroll * 0.1f; // Adjust zoom level
-            if (widget.zoom < 0.1f)
-                widget.zoom = 0.1f; // Prevent zoom level from becoming too small
-        }
+        HandleMovingWidget(&widget);
+        HandleMovingWidget(&widget1);
+        HandleZoomingWidget(&widget);
+        HandleZoomingWidget(&widget1);
 
         // Update the widget with new input value
         float inputValue = GetTime(); //
